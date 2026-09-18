@@ -1,0 +1,153 @@
+Datenblatt
+
+Titel:
+
+	The 1:5 million scale International Geological Map of Europe and Adjacent Areas
+	(Die Internationale Geologische Karte von Europa und angrenzenden Gebieten im Maßstab 1:5 Millionen)
+
+Kurztitel:
+
+	IGME5000
+
+Inhalt:
+
+	Die Internationale Geologische Karte von Europa und angrenzenden Gebieten im Maßstab 1:5 Mio. zeigt die präquartäre Geologie Europas, sowohl an Land als auch vor der Küste. Neben der nach Alter, Petrographie und Genese gegliederten Geologie werden auch magnetische Anomalien, tektonische Strukturen, Metamorphismus und in den küstennahen Gebieten Informationen über die kontinentale/ozeanische Kruste und den Kontinentalrand dargestellt. Die Karte wurde von der BGR unter der Schirmherrschaft der Commission of the Geological Map of the World (CGMW) und in Zusammenarbeit mit den Geologischen Diensten von 48 Ländern und mehr als 20 Forschungsinstituten entwickelt. 
+	Diese Version enthält INSPIRE-konforme Begriffe für Alter und Lithologie sowie eine hierarchische Beschreibung der Stratigraphie.
+
+Attribute der einzelnen IGME5000-Layer:
+	Das Datenpaket ist getrennt in die Bereich "onshore" und "offshore"; die Layer der beiden Bereiche sind prinzipiell identisch strukturiert, aber nicht nicht jeder der Themenlayer kommt in beiden Bereichen vor.
+
+	LAYERGRUPPE	"text symbol (age)" - Beschriftungslayer
+	Die Sichtbarkeit der Layer ist maßstabsabhängig, für mehrere Zoomstufen gibt es einen Beschriftungslayer.
+	Layer "scale ... "
+		Inhalt der Beschriftung ist abgeleitet aus der Altersinformation im Layer "geology", z.B. 'E3-N1'
+		Je nach Zoomstufe ändert sich der Umfang der Beschriftung
+
+	LAYERGRUPPE "geological boundaries and faults" - Linienlayer
+	Die Sichtbarkeit der Layer und die differenzierte Darstellung der Inhalte ist maßstabsabhängig, für mehrere Zoomstufen gibt es einen Layer.
+	Layer "faults ..." - Attribute:
+		boundary or structure line [PORTR_LINE] = Linienklasse als Klarname (z.B. 'fault')
+		zone [REALM] = Der Bereich, in dem das Objekt sich befindet ('onshore', 'offshore')
+		
+	GRUPPENLAYER "features of marine units" - unterschiedliche Geometrien, nur offshore.
+	Die Sichtbarkeit der Layer und die differenzierte Darstellung der Inhalte ist maßstabsabhängig, für mehrere Zoomstufen gibt es einen Layer.
+	
+	Layergrupper "drilling sites"
+	Layer "drilling sites ... " - Punktlayer
+	Die Sichtbarkeit der Layer und die differenzierte Darstellung der Inhalte ist maßstabsabhängig, für mehrere Zoomstufen gibt es einen Layer.
+	Standorte abgeteufter Forschungsbohrungen - Attribute:
+		SITELABEL [XXX] = Kennung des Bohrstandorts
+		DAY_ = Tage der Bohrung
+		MONTH_ = Monat der Bohrung
+		YEAR_ = Jahr der Bohrung
+		symbol [XXX] = Bohrungsprojekt (Kurzform) ('DSDP', 'ODP')
+		description = Bohrungsprojekt (Klartext) (z.B. 'Deep Sea Drilling Programm')
+	
+	Layer "boundaries of extension of salt ... " - Linienlayer
+	Die Sichtbarkeit der Layer und die differenzierte Darstellung der Inhalte ist maßstabsabhängig, für mehrere Zoomstufen gibt es einen Layer.
+	Ausdehung von Salzvorkommen - Attribute:
+		symbol [XXX] = Salzvorkommen der Erdzeitalter (z.B. 'boundary of extension of Late Permian salt')
+	
+	Layer "continent-ocean-boundary (COB) ... " - Linienlayer
+	Die Sichtbarkeit der Layer und die differenzierte Darstellung der Inhalte ist maßstabsabhängig, für mehrere Zoomstufen gibt es einen Layer.
+	Ausdehung von Salzvorkommen - Attribute:
+		symbol [XXX] = 'continent-ocean-boundary'
+	
+	Layer "magnetic anomaly" - Linienlayer
+	Vorkommen der Änderung des magnetischen Orientierung im Gestein - Attribute:
+		chrono [XXX] = nachgewiesenes Alter der Änderung des Magnetfeldes in Jahrmillionen (z.B. 20)
+		symbol [XXX] = 'magnetic anomaly'
+	
+	Layer "seafloor spreading axis" - Linienlayer
+	Achse des Seafloor-spreading - Attribute:
+		symbol [XXX] = Status des spreading processes ('active spreading axis', 'fossil spreading axis')
+		
+	GRUPPENLAYER "geology"
+	Alle Layer der Gruppe "geology" basieren auf dem selben Datensatz. Die Layerattribute insgesamt werden weiter unten beschrieben.
+	
+	LAYERGRUPPE "metamorphic grade" - Polygonlayer
+	Die Sichtbarkeit der Layer und die differenzierte Darstellung der Inhalte ist maßstabsabhängig, für mehrere Zoomstufen gibt es einen Layer.
+	Layer  "metamorphic rocks ..." - Attribute für die Symbolisierung:
+		metamorphic grade [ XXX] = Grad der Gesteinsmetamorphose
+
+	LAYERGRUPPE "ophiolite complex" - Polygonlayer
+	Layer "ophiolite complex" - Attribute für die Symbolisierung:
+		ophiolite complex [XXX] = Zugehörigkeit zur Klasse der Ophiolite ('ophiolite complex')
+
+	LAYERGRUPPE "igneous rocks" - Polygonlayer, nur onshore
+	Zugehörigkeit zur Gruppe der magmatischen Gesteine
+	Layer "igneous rocks" - Attribute für die Symbolisierung:
+		igneous rock [XXX] = Intrusions- oder Extrusionsgestein, gegliedert nach Erdzeitalter (Ära) (z.B. 'plutonite Cenozoic', 'volcanite Palaeozoic')
+
+	Layer "crust-related ocean units" - Polygonlayer, nur offshore
+	Klassen der Ozeanische Kruste - Attribute für die Symbolisierung:
+		marine geology [XXX] = Eigenschaften der ozeanischen Kruste (z.B. 'oceanic crust, older)
+
+	LAYERGRUPPE "age (chronstratigraphic)" - Polygonlayer
+	Gliederung gemäß des Gesteinsalters, je nach Verfügbarkeit der Information: Stufe, Epoche, Periode oder Ära. Genannt wird die Zeitspanne des gesamten Bildungszeitraums. Die Flächenfarbe orientiert sich an der Angabe des älteren Alters.
+	Layer "age (chronstratigraphic" - Attribute für die Symbolisierung:
+		name older rock age [XXX] = Altersangabe der Gesteinsbildung (z.B. 'Permian - Jurassic')
+		
+	
+	Layer "geologie", 
+	Datensatz - Attributspalten:
+	[age_name]					-		Langform der Altersbegriffe 
+							--> layer	"age", Symbolisierung gemäß der	IGME5000, 
+							-->	label	[age_name]
+	[age_older]					-		untere Grenze der Schichtklasse in Millionen Jahren vor heute 
+	[age_younger]				-		obere Grenze der Schichtklasse in Millionen Jahren vor heute
+	[age_name_shortform]		- 		Kurzform der Altersklassen (Verwendet für die Beschriftung)
+	[age_name_shortform_alternativ]
+								-		Kurzform der Altersklassen, wie sie in der IGME5000 ursprünglich verwendet wurde: Darstellung des Kamriums durch ein "epsilon".
+	[age_name_older_inspire]	-		Alter, untere stratigraphische Klasse, Werte gemäß INSPIRE-Vokabular 
+							--> layer	{age INSPIRE}, Symbolisierung gemäß INSPIRE
+							--> label	[age_name_inspire_label]
+	[age_name_younger_inspire] 	-		Alter, obere stratigraphische Klasse, Werte gemäß INSPIRE-Vokabular
+	[age_name_inspire_label] 	-		kompilierte Textbeschriftungen von INSPIRE-konformen Werten (untere und obere Altersgrenze)
+							-->	label	{age INSPIRE}
+	[age_hierarchy_inspire]		-		übergeordnete stratigraphische Alters Begriffe
+	[petrography1]				-		petrography 1 
+							--> layer 	{petrography}, Symbolisierung gemäß der	IGME5000
+							--> label	[petrography1] 
+	[petrography2]to[4]			-		petrography 2 to 4 
+	[lithology1_inspire]		-		Lithologiewerte gemäß INSPIRE-Vokabular 
+							--> layer	{lithology INSPIRE}, Symbolisierung gemäß INSPIRE
+							--> label 	field [lithology_inspire_label]
+	[lithology2_inspire] to
+	[lithology4_inspire]
+	[lithology_inspire_label]			kompilierte Textbeschriftungen der INSPIRE-konformen Werte
+							-->	label	{lithology INSPIRE}
+	[metamorphic_rocks]			-		Metamorphosegrad 
+							--> layer 	{metamorphic rocks}
+	[igneous_rocks]			--> layer 	"igneous rocks"
+	[marine_crust_rocks]		-		Einheiten der Meereskruste 
+							--> layer	"marine crust-related unit"
+	[ophiolite_complex]		--> layer	Ophiolit-Komplex
+	[genetic_elements]			-		Information zur Genese
+	[regional_name]				-		spezifischer regionaler Eigenname
+	[petrography_categories]	-		Kategorie der Lithologie
+	[domain]					-		Datenbereich: 'onshore', 'offshore'
+		
+
+Referenzsystem:
+
+	EPSG:3857 (WGS 84 / Pseudo-Mercator)
+	Westliche Länge: -11
+	Östliche Länge: 63
+	Nördliche Breite: 80
+	Südliche Breite: 34
+
+Bearbeitungsstatus:
+
+	abgeschlossen
+
+Publiziert:
+
+	21.11.2005
+
+Kontakt:
+
+	Bundesanstalt für Geowissenschaften und Rohstoffe
+	geologie.daten@bgr.de
+	Stilleweg 2 
+	30655 Hannover DE

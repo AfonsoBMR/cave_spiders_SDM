@@ -1,0 +1,635 @@
+---
+title: "Preparing all data"
+author: "Afonso Rodrigues"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  word_document:
+    highlight: tango
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float: true
+    theme: readable
+    fig_width: 6 
+    fig_height: 4.5
+bibliography: references.bib
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(cache = FALSE)
+```
+
+This script documents a modelling example I did as preparation before building the all-species pipeline. 
+
+It was part of preparing_all_data.Rmd but I removed it. Here, it's missing some data importing steps in the beginning.
+
+### Subsampling locations
+
+I will subsample locations based on the predictors grid (i.e. eliminate all but one occurrence points in each grid cell). This is common practice to remove some sampling bias. 
+
+"However, subsampling reduces the number of records, and it cannot correct the data for areas that have not been sampled at all. It also suffers from the problem that locally dense records might in fact be a true reflection of the relative suitable of habitat." [@big_book]
+
+```{r}
+# subsetting all-species dataset to obtain M. menardi locations
+menardi_locations <- subset( occurrences, occurrences$acceptedNameUsage == "Meta menardi (Latreille, 1804)" )
+
+
+# subsampling locations
+menardi_locations_sub <- spatSample( menardi_locations, size=1, "random", strata = MAT)
+
+
+# to illustrate the method and show the result
+
+# grid, zoomed in 
+plot(MAT, maxcell = Inf,
+     ext = c(-1139453, -1092894, 1501103, 1535295))
+
+# all points
+points(menardi_locations)
+
+# selected points in red
+points(menardi_locations_sub, cex=1, col='red', pch='x')
+
+# to report
+n_before <- nrow(menardi_locations)
+n_after <- nrow(menardi_locations_sub)
+```
+
+Note how, on the left, there are two menardi locations in the same cell (black dots). The subsampling command only kept one (red cross). Of the `r n_before` locations, `r n_after` were selected and kept.
+
+
+
+
+### Creating background data manually
+
+"Background data (e.g. Phillips et al. 2009) are not attempting to guess at absence locations, but rather to characterize environments in the study region. In this sense, background is the same, irrespective of where the species has been found. Background data establishes the environmental domain of the study, whilst presence data should establish under which conditions a species is more likely to be present than on average. A closely related but different concept, that of “pseudo-absences”, is also used for generating the non-presence class for logistic models. In this case, researchers sometimes try to guess where absences might occur – they may sample the whole region except at presence locations, or they might sample at places unlikely to be suitable for the species. We prefer the background concept because it requires fewer assumptions and has some coherent statistical methods for dealing with the “overlap” between presence and background points (e.g. Ward et al. 2009; Phillips and Elith, 2011)." [@big_book]
+
+This is where the calibration area topic matters. The area from which we chose to draw the background or pseudoabsences data for each species is determinant for output. The calibration area is theoretically the area that the species could reach given its history and dispersal characteristics. This might be quite a complex topic for subterranean species.
+
+Since M. menardi in particular is distributed throughout europe, this case is simple - the calibration area can be all of the study region. 
+
+```{r}
+# creating 10000 background points
+# for species with more restricted distributions, i suppose an "ext = user_defined_calibration_area" argument should be added      
+# using the explanatory dataset
+background_points <- spatSample( explanatory, 10000, "random", na.rm = TRUE, as.points=TRUE)
+
+# getting values from background points
+background_env <- values(background_points)
+
+
+# extracting grid values for each menardi point
+# using the explanatory dataset
+menardi_env_na <- extract( explanatory, menardi_locations_sub)
+
+# re-combining coordinates from menardi_locations_sub with the extracted values 
+# this object is needed so i can eliminate points with NA values, to use later in Moran's I
+menardi_env_crds <- data.frame( crds(menardi_locations_sub), menardi_env_na)
+
+# remove rows with NA values
+menardi_env_crds <- na.omit( menardi_env_crds)
+
+# remove the ID and coordinates variables
+menardi_env <- menardi_env_crds[, c(-1,-2,-3)]
+
+
+# obtaining dataframe with value pb=1 for menardi values and pb=0 for background values
+pb <- c(rep(1, nrow(menardi_env)), rep(0, nrow(background_env)))
+sdmdata <- data.frame(cbind(pb, rbind(menardi_env, background_env)))
+
+
+# plotting background and menardi points
+plot(background_points, cex=0.1)
+points(menardi_locations_sub,  cex=0.1, col = "red")
+``` 
+
+I only get about 7000 background points while asking for 10000 because of "na.rm = TRUE".
+
+
+
+
+### Running a glm
+
+```{r, fig.width=12, fig.height=4}
+# full glm with all possible predictors as parameters, each in both linear and quadratic terms
+# only excluding elev 
+# using the standardized version of the explanatory dataset
+m_full <- glm(pb ~ MAT + I(MAT^2) + 
+                MAP + I(MAP^2)+
+                bio4 + I(bio4^2)+
+                bio15 + I(bio15^2)+
+                LULC + # factor
+                ice_dist + I(ice_dist^2)+
+                TRI + I(TRI^2)+
+                surf_het + I(surf_het^2)+
+                NPP + I(NPP^2)+
+                soc + I(soc^2)+
+                coarse + I(coarse^2)+
+                karst + I(karst^2) +
+                mining + I(mining^2)+
+                footprint + I(footprint^2), 
+           family = binomial(link = "logit") , data = sdmdata)
+
+
+# simple stepwise bi-directional parameter selection 
+m_step <- step( m_full, direction= "both", trace=FALSE)
+
+summary(m_step)
+
+
+# predicted habitat suitability according to the model
+library(predicts)
+p <- predict( explanatory, m_step, type = "response" )
+
+# plotting predicted habitat suitability
+plot(p, main = "M. menardi predicted habitat suitability")
+
+# adding occurrences as points
+points(menardi_locations, col = 'black', cex = 0.1 )
+
+# model evaluation
+e <- pa_evaluate(menardi_env, background_env, m_step) ; e
+
+par(mfrow=c(1, 3))
+plot(e, "density")
+plot(e, "boxplot", col=c('blue', 'red'))
+plot(e, "ROC")
+```
+
+The model seems very overfitted. Almost all variables are kept, and surely not all of them are drivers of distribution.
+
+
+
+
+### Testing spatial autocorrelation
+
+```{r, message=FALSE}
+# testing for spatial autocorrelation in the residuals of the GLM
+# using Moran’s I test
+
+library(ape)
+
+# get coordinates of each calibration point
+xy <- rbind( menardi_env_crds[, c(1,2)] , geom( background_points)[, c(3,4) ])
+
+# creating weight matrix
+dists <- as.matrix( dist(xy) )
+dists_inv <- 1/dists
+diag( dists_inv ) <- 0
+
+# the two values below should be the same, otherwise some NA's made it into the model and the test wont work
+nrow(xy) ; nrow( sdmdata )
+
+Moran.I( m_step$residuals, dists_inv )
+```
+
+From the documentation: "If the observed value of I is significantly greater than the expected value, then the values of x are positively autocorrelated". 
+
+The very low p-value indicates that the residuals are spatially correlated. 
+
+"Next, we will want to plot the spatial correlation structure against distances between our observations. Samples
+separated by a short distance should have greater similarity (and thus correlation) than samples separated by a larger distance. We evaluate this distance dependence using a Mantel correlogram (...) This is done by first extracting the residuals from the GLM object, and then randomly selecting 500 points from the residuals and from the x-and
+y-coordinates" [@big_book]
+
+```{r, message = FALSE}
+library(ncf)
+
+rsd <- m_step$residuals
+# i increased the 500 points to 3000 because the plot was coming out different each iteration
+rnd <- sample(1:length(rsd),3000,replace=TRUE)
+spat.cor<-correlog(xy[rnd,1],xy[rnd,2],rsd[rnd],increment=2, resamp=10)
+
+# plot the correlogram
+# this is the same as plot(spat.cor) but fancier
+
+plot(spat.cor$mean,spat.cor$corr,
+     col= "firebrick3", 
+     ylab="Correlation",
+     xlab="Distance class", main= "Spatial Correlogram", font.lab=2)
+lines(spat.cor$mean,spat.cor$corr, col= "firebrick3") 
+abline(0,0,col= "grey50",lty=3)
+
+# plot the spatial pattern of residuals for illustration
+
+plot(xy[order(rsd),], pch=15, col=rev(heat.colors(5900)),
+        cex=.3, main="Residuals from GLM", xlab="Latitude",
+        ylab="Longitude", font.lab=2)
+
+```
+
+Less-distant point show higher correlation, as expected.
+
+"Residuals from binomial GLMs are naturally asymmetric, with larger values where presence is simulated and lower values where absence is simulated. The highest residuals usually occur at the range edge of species" [@big_book]
+
+
+
+
+### Alternative: creating pseudoabsence data manually
+
+Another way: instead of manually obtaining background data, I can manually get pseudoabsence by sampling within a radius of presence points - VanDerWal et al. (2009). 
+
+```{r}
+# circles with a radius of 50 km around locations
+x <- buffer( menardi_locations_sub, 50000 )
+
+pol <- aggregate(x)
+
+# sample randomly from all circles
+samp1 <- spatSample(pol, 5000, "random")
+
+# making sure theres at most one point per cell
+pcells <- cells(MAT, samp1)
+pcells <- unique(pcells[,2])
+xy <- xyFromCell(MAT, pcells) # these coordinates are of the center of the cells 
+
+# plot to inspect the results:
+plot(pol, axes=TRUE)
+points(xy, cex=0.75, pch=20, col='blue')
+
+# ... further modelling steps ...
+```
+
+
+
+
+### Running a gam
+
+Instead of using GLM altogether, I can use a GAM:
+
+```{r, fig.width=10, fig.height=4.5}
+# i can also fit a GAM using almost similar syntax to GLM:
+# i just need to add the smoothing function to each variable (s() is the standard one) and specify the wiggliness, which for SDM is recommended to be below 4 in the book
+library(gam)
+
+# detaching mgcv package since it usually conflicts with the gam package
+if (is.element("package:mgcv", search())) detach("package:mgcv")
+
+# example of gam fitting syntax with only two variables
+m_gam <- gam( pb ~ s(MAT, 4) + s(MAP, 4),
+              family = binomial(link = "logit") , data = sdmdata)
+
+# see summary and plot response curves with "±2 standard error curves"
+summary(m_gam)
+
+par(mfrow = c(1, 2))
+plot(m_gam, se = T)    
+
+# i can also choose to construct a step-wise gam, in this case starting from an empty model
+gamStart <- gam( pb ~ 1, family = binomial(link = "logit") , data = sdmdata)
+
+gamModAIC <- step.Gam( gamStart, 
+                       biomod2:::.scope( sdmdata[, 2:15], "s", 4), 
+                       trace = F, 
+                       direction = "both")
+summary( gamModAIC )
+
+
+# insert plot of predicted habitat suitability according to the model
+# ...
+
+# model evaluation
+e_gam <- pa_evaluate(menardi_env, background_env, gamModAIC) ; e_gam
+
+par(mfrow=c(1, 3))
+plot(e_gam, "density")
+plot(e_gam, "boxplot", col=c('blue', 'red'))
+plot(e_gam, "ROC")
+```
+
+The resulting GAM also looks overfitted.
+
+I will skip individually running Maxent, RF or other types of models, since they all require specific and time consuming procedures. 
+
+
+
+
+### biomod2 ensembles
+
+Random pseudoabsences are recommended for all models when there is no sampling design (the biomod2 team video said this). @pseudoabsences specifies that random is generally best for regression techniques but random with geographical and environmental exclusion is best for classification and machine-learning techniques.
+
+According to @pseudoabsences, a large number of pseudoabsences is best for regression techniques and MaxEnt (ex.: 10000). With a high number of pseudoabsences, there's no need to run multiple sets of pseudoabsences, since the effect of stochasticity is low; this will simplify and lighten the modelling pipeline. For CTA, BRT and RF, pseudoabsences should be as many as presences, with many runs if below 1000. 
+This is tricky, since its optimal value is very different in RF and regression. It's possible to assign different PA datasets to the different algorithms, but this means their evaluation scores used for weighting become biased and incomparable (each algorithm uses a different dataset).
+I could accept the bias, use an ensemble with no weighting, or I could do two ensembles per species - one with MaxEnt + GAM + GLM, and another with BRT + RF, then averaging both. 
+In reality, these evaluations score biases might be largely irrelevant, since different species will always have different datasets and biased evaluation scores in relation to each other (when PA data is used, commission rates and other metrics calculated from them are very biased, unlike when true presence-absence data exists). So, the scores being unbiased is only relevant if I'm using them to determine the contribution of each model in each ensemble - if I use an ensemble technique that is not weighted (ex committee averaging), this is not a problem.
+
+"metrics that gauge performance without estimating commission error are valid and more appropriate for this type of data, both for assessing model performance and for use in threshold selection. For example, rates of omission at a given threshold are commonly used and comparable across species (e.g. validation omission rate based on a threshold corresponding to the minimum training presence value;" @top_ten
+
+Regarding model settings: "bigboss" seems like a good option for the generality of the study.
+
+```{r, message=FALSE, warning=FALSE}
+library(biomod2)
+library(ggplot2)
+
+# formating the data according to biomod2 framework
+bm_data <- BIOMOD_FormatingData( resp.name = "Meta menardi",
+                                 resp.var = menardi_locations_sub[,-1], # occurrence coordinates
+                                 expl.var = historical, 
+                                 dir.name = here("2.preparing_all_data"),
+                                 PA.nb.rep = 1, # number of pseudoabsence datasets created, should be more
+                                 PA.nb.absences = 1000, # number of pseudoabsences per dataset
+                                 PA.strategy = "random") # random pseudoabsences scheme
+
+# data summary
+bm_data
+p1 <- plot(bm_data, plot.type = "points", point.size = 0.1) ; p1$plot
+
+# fitting models with cross-validation
+bm_models <- BIOMOD_Modeling( bm.format = bm_data,
+                              models = c("RF", "GAM"),  
+                              CV.strategy = 'random', # should be stratified 
+                              CV.nb.rep = 2, # cross-validation runs, should be much more
+                              CV.perc = 0.7, # fraction of data used for calibration in cross-validation
+                              OPT.strategy = 'bigboss', # settings 
+                              metric.eval = c('TSS','AUCroc'), 
+                              var.import = 2, #  number of permutations done for each variable to estimate variable importance
+                              do.progress = FALSE) 
+# this will fit 4 models (2 CV runs * 2 algorithms * 1 PA dataset)
+
+# get raw dataframe of model evaluation scores
+get_evaluations( bm_models )
+```
+
+It seems the hierarchy is such as presented on the evaluation score dataframe: 
+for each PA (pseudoabsence) dataset,
+it does CV.nb.rep cross-validation runs (and also an allRun model without data partition),
+for each run/data-split it runs all of the algorithms, 
+for each algorithm it calculates all evaluation metrics.
+(and also a allData model with all presence, absence, pseudoabsence and potential absence points - raster points with no presence)
+
+The biomod2 team explanation of allRun and allData is:
+
+"allRun is a dataset/model without cross-validation separation. if you use CV.perc = 0.99, the different RUNx should be close to allRun. allData with all the presences points and all the (pseudo) absences points. If you already have absences points, you just gonna have this dataset allData.
+
+allData_RUNx models happened in the case of real absences and not pseudo-absences:
+allData will have all the presence and pseudoabsence included but it will be still associated with some cross-validation. You will have models with :
+allData_RUN1 : all the points separated in a calibration dataset and validation dataset
+allData_RUN2 : all the points separated in a calibration dataset and validation dataset
+...
+allData_allRun: all the points without cross-validation"
+
+
+```{r, fig.width=12, fig.height=4}
+# plot mean and sd of evaluation metrics for each algorithm, each run and each pseudoabsence dataset (here only one)
+# note the metrics are being calculated on the training data, so they are measures of goodness-of-fit and not predictive power
+
+p1 <- bm_PlotEvalMean( bm_models,
+                 metric.eval = c("AUCroc","TSS"),
+                 xlim = c(0,1), ylim = c(0,1),
+                 dataset = "validation",
+                 group.by = "algo",
+                 do.plot = FALSE) # group by algorithm
+
+p2 <- bm_PlotEvalMean( bm_models,
+                 metric.eval = c("AUCroc","TSS"),
+                 xlim = c(0,1), ylim = c(0,1),
+                 dataset = "calibration",
+                 group.by = "run",
+                 do.plot = FALSE) # group by run, should be similar
+
+p3 <- bm_PlotEvalMean( bm_models,
+                 metric.eval = c("AUCroc","TSS"),
+                 xlim = c(0,1), ylim = c(0,1),
+                 dataset = "calibration",
+                 group.by = "PA",
+                 do.plot = FALSE) # group by pseudoabsence dataset, should be similar
+
+require(gridExtra)
+grid.arrange( p1$plot, p2$plot, p3$plot, ncol=3)
+
+
+# another quite similar function is
+# bm_PlotEvalBoxplot(
+#   bm_models,
+#   dataset = "validation",
+#   group.by = c("algo", "run") )
+```
+
+The RF seems overfitted to the calibration data (very high accuracy). However, the evaluation scores for validation data are more realistic, and still very good.
+
+```{r}
+# get raw dataframe of variable importance
+# note i get a variable importance value for each permutation (in this case, 2)
+bm_var_importance <- get_variables_importance( bm_models )
+
+# calculate mean variable importances across all models 
+library( dplyr )
+bm_var_importance %>%
+  group_by( expl.var) %>%
+    summarise(mean = mean( var.imp ), n = n())
+
+# plot variables importance
+p1 <- bm_PlotVarImpBoxplot(bm.out = bm_models,
+                           group.by = c('expl.var', 'run','algo'), do.plot = FALSE)
+#  full.name, PA, run, algo, expl.var
+p1$plot
+```
+
+This indicates that the most important variables are MAP, footprint, TRI and NPP.
+
+Overall, the different algorithms seem to disagree on the importance of variables. Variation between runs is minimal, as expected.
+
+Now to look at response curves, which help "visualize the species’ modeled response to the given variable, conditional on all other variables (being held constant, usually mean) in the model" [@big_book].
+
+This particular bm_PlotResponseCurves() method uses the evaluation strip procedure, initially proposed by Elith et al. (2005). I can also make bivariate plots.
+
+```{r, fig.width=9, fig.height=4.5}
+# getting response curves of all RF models for MAP
+p1 <- bm_PlotResponseCurves(
+        bm_models,
+        models.chosen = BIOMOD_LoadModels( bm_models, algo = "RF"), # could also use "all" to display all of bm_models
+        new.env = get_formal_data( bm_models, "expl.var"),
+        show.variables = "MAP", 
+        fixed.var = "mean",
+        do.bivariate = FALSE,
+        do.progress = FALSE,
+        do.plot = FALSE)
+
+# getting response curves of all GAM models for MAP
+p2 <- bm_PlotResponseCurves(
+        bm_models,
+        models.chosen = BIOMOD_LoadModels( bm_models, algo = "GAM"),
+        new.env = get_formal_data( bm_models, "expl.var"),
+        show.variables = "MAP", 
+        fixed.var = "mean",
+        do.bivariate = FALSE,
+        do.progress = FALSE,
+        do.plot = FALSE)
+
+grid.arrange( p1$plot, p2$plot, ncol=2)
+```
+
+The caption disappeared but left is RF models and right is GAM models.
+
+"Each response line corresponds to a different model (involving a given pseudo-absence sampling and a given cross-validation sampling)" [@big_book]
+
+These response curves allow deduction of the environmental optima of the species, for each variable.
+
+```{r}
+# running ensemble function on the models created
+bm_ensemble <- BIOMOD_EnsembleModeling(
+                  bm_models,
+                  models.chosen = "all", # model names to be kept
+                  em.by = "all", # way to combine kept models (all, algo, PA, PA+algo, PA+run)
+                  em.algo = c('EMca', 'EMwmean'), # ensemble models that will be computed
+                  EMwmean.decay = "proportional", # attribute weights proportionally to the models evaluation scores
+                  metric.select = c( "TSS" ), # metric used to exclude single models based on their evaluation scores
+                  metric.select.thresh = c( 0.5 ), # threshold to exclude single models, usually 0.7 or 0.8
+                  metric.eval = c("KAPPA", "TSS", "AUCroc"),
+                  var.import = 2,
+                  nb.cpu = 1,
+                  do.progress = FALSE)
+# the evaluation scores used to exclude models with metric.select.thresh and for the weighted means with EMwmean are calculated for the validation (not calibration) datasets of each run 
+
+# ensemble summary
+bm_ensemble
+
+# get raw dataframe of model evaluation scores and variables importance
+get_evaluations( bm_ensemble )
+get_variables_importance( bm_ensemble ) # the importance values come by ensemble and by permutation
+```
+
+The incorporation of models in the ensemble is "weighted by a weight of evidence in favor of this model, but this time based on a chosen predictive accuracy metric (e.g. AUC or TSS), ideally (but not necessarily) calculated on a left-out partition of the data, obtained for instance through cross-validation."
+Looking at the final evaluation scores, they're similar for the two ensembling options.
+
+Regarding committee averaging (EMca): "The interesting feature of this measure is that it gives both a prediction and a measure of uncertainty. When the prediction is close to 0 or 1, it means that all models agree to predict 0 or 1 respectively. When the prediction is around 0.5, it means that half the models predict 1 and the other half 0. Note that this is for binary data only."
+
+These scores are calculated for the calibration data. If I was interested in comparing different ensembling options, I could set apart some final validation data in the beginning formatting function, and use it here to evaluate each ensemble. 
+
+Variable importances are just slightly different from the averages of individual models.
+
+```{r}
+# plot evaluation scores 
+p1 <- bm_PlotEvalBoxplot(bm.out = bm_ensemble, group.by = c('full.name', 'full.name'), do.plot = FALSE)
+
+# plot variables importance
+p2 <- bm_PlotVarImpBoxplot(bm.out = bm_ensemble, group.by = c('expl.var', 'algo', 'merged.by.run'), do.plot = FALSE)
+
+# plot response curves
+p3 <- bm_PlotResponseCurves(bm.out = bm_ensemble, 
+          models.chosen = get_built_models( bm_ensemble )[c(1,2)], # syntax to specify models, unecessary in this case
+          fixed.var = 'median', 
+          do.plot = FALSE)
+
+# call plots
+p1$plot
+p2$plot 
+p3$plot 
+
+# explore models' outliers and residuals
+# this is not working for some reason
+# bm_ModelAnalysis( bm.mod = bm_models,
+#                 models.chosen = get_built_models(bm_models)[c(1, 2, 3, 4)])
+```
+
+The response curves are more or less equivalent in both ensembles, as expected.
+
+The response curve for LULC (a factor) is nonsensically continuous, but I believe its due to the plotting function, and the model does in fact correctly account for it as a factor. 
+
+```{r}
+# defining ensemble so its only one ensemble - the EMca one
+bm_ensemble2 <- BIOMOD_EnsembleModeling(
+                  bm_models,
+                  models.chosen = "all", # model names to be kept
+                  em.by = "all", # way to combine kept models (all, algo, PA, PA+algo, PA+run)
+                  em.algo = 'EMca', # ensemble models that will be computed
+                  metric.select = 'TSS', # metric used to exclude single models based on their evaluation scores
+                  metric.select.thresh = 0.5, # threshold to exclude single models, usually 0.7 or 0.8
+                  metric.eval = c("KAPPA", "TSS", "AUCroc"),
+                  var.import = 2,
+                  nb.cpu = 1,
+                  do.progress = FALSE)
+
+# projecting ensembles of models to current conditions (historical)
+# there are two ways to do this: either run the BIOMOD_Projection function first, and then run BIOMOD_EnsembleForecasting specifying the bm.proj argument; or just run the BIOMOD_EnsembleForecasting specifying proj.name and new.env
+# the first option might be better, since I save the single model projections and can then use that to fiddle around with the ensembleForecasting function without it having to run them every time
+# making it a two-step process also exposed an error
+
+# projecting single models for historical conditions 
+bm_models_proj_historical <- BIOMOD_Projection(
+                                bm.mod = bm_models,
+                                proj.name = "historical",
+                                new.env = historical,
+                                models.chosen = "all",
+                                metric.binary = "AUCroc", # metric(s) used to build presence–absence projections using the threshold that maximizes evaluation scores, if I specify multiple it outputs multiple binary projections
+# "AUCroc" doesnt seem to work
+                                metric.filter = NULL, # for filtered projections, whatever that is
+                                build.clamping.mask = FALSE,
+                                nb.cpu = 1 )
+
+# projecting ensemble for historical conditions (from single model projections)
+# note that if the bm.em had various ensemble options, projections will be made for each
+bm_ensemble_proj_historical <- BIOMOD_EnsembleForecasting(
+                                  bm.em = bm_ensemble2,
+                                  bm.proj = bm_models_proj_historical, 
+                                  proj.name = NULL, # because i'm already inputing a bm.proj object
+                                  new.env = NULL, # because i'm already inputting a bm.proj object
+                                  models.chosen = "all",
+                                  metric.binary = "AUCroc", 
+                                  metric.filter = NULL, 
+                                  na.rm = TRUE,
+                                  nb.cpu = 1) 
+
+# these two projection functions create four files: 
+# a stack with all single model suitability projections, 
+# a stack with all binary model projections (probably not needed), 
+# an ensemble suitability projection, 
+# an ensemble binary projection
+
+# summary
+bm_ensemble_proj_historical
+
+# plot ensemble suitability projection
+p1 <- plot(bm_ensemble_proj_historical, do.plot = FALSE) ; p1
+```
+
+"Note that the units of projections are predicted habitat suitability multiplied by
+1000 (they're on a 0-1000 scale)."
+
+```{r}
+# projecting ensemble for future conditions (directly, not from single model projections)
+# as an example, i'll only do it for one scenario/date
+bm_ensemble_proj_future_85_2080 <- BIOMOD_EnsembleForecasting(
+                                          bm.em = bm_ensemble2,
+                                          bm.proj = NULL, 
+                                          proj.name = "future_85_2080",
+                                          new.env = future_85_2080,
+                                          models.chosen = "all",
+                                          metric.binary = "AUCroc", 
+                                          metric.filter = NULL, 
+                                          na.rm = TRUE,
+                                          nb.cpu = 1)
+
+# fetch binary ensemble projections that was created
+bm_ensemble_proj_binary_historical <- rast(here("2.preparing_all_data","Meta.menardi","proj_historical","proj_historical_Meta.menardi_ensemble_AUCrocbin.tif"))
+bm_ensemble_proj_binary_future_85_2080 <- rast(here("2.preparing_all_data","Meta.menardi","proj_future_85_2080","proj_future_85_2080_Meta.menardi_ensemble_AUCrocbin.tif"))
+
+# compute differences
+# this function can either receive simple suitability projections and convert them to binary using metric.binary, or use already binary projections. the first options e probably preferable, but below i use the second
+# for some reason, when I input the binary projections I get an error with metric.binary = NULL
+range_size <- bm_RangeSize( proj.current = bm_ensemble_proj_binary_historical, 
+                                proj.future = bm_ensemble_proj_binary_future_85_2080 ) # can also be multiple future projections
+                                
+range_size$Compt.By.Models # summary of species range change statistics
+
+plot(range_size$Diff.By.Pixel) # plot of species range change 
+
+# as a test
+plot( c(bm_ensemble_proj_binary_historical, bm_ensemble_proj_binary_future_85_2080)  )
+plot(range_size$Diff.By.Pixel) 
+```
+
+To interpret map above:
+
+-2 : predicted to be lost
+
+-1 : predicted to remain occupied
+
+0 : predicted to remain unoccupied
+
+1 : predicted to be gained
+
+I've arrived at the key values that I need for each species: percentage of predicted habitat gain/loss under various global change scenarios. Transforming this value into probability of extinction or of probability of successful migration along with climate change requires integration of demographic models.

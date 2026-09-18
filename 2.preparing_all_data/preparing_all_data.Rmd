@@ -1,0 +1,728 @@
+---
+title: "Preparing all data"
+author: "Afonso Rodrigues"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float: true
+    theme: readable
+    fig_width: 6 
+    fig_height: 4.5
+  word_document:
+    highlight: tango
+bibliography: references.bib
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(
+  echo = TRUE,
+  cache = FALSE,
+  dpi = 900)
+```
+
+This script documents assembly of final predictor stacks for modelling, cleaning of the occurrence dataset, data exploration.
+
+
+## Predictor grids
+
+```{r}
+library( terra )
+library( here )
+
+# importing all (masked) predictor grids
+# note I keep the same variable name (ex MAT) even on layers with different periods
+# this is necessary so model projection works
+
+# historical data
+MAT <- rast( here("1.preparing_predictors","final_predictors_masked","climate","historical","MAT.tif" )); names(MAT) = "MAT"
+MAP <- rast( here("1.preparing_predictors","final_predictors_masked","climate","historical","MAP.tif") ) ; names(MAP) = "MAP"
+bio4 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","historical","bio4.tif") ) ; names(bio4) = "bio4"
+bio15 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","historical","bio15.tif") ) ; names(bio15) = "bio15"
+LULC <- rast(here("1.preparing_predictors","final_predictors_masked","LULC","Global7-land-typesLULCprojectiondataset","global_LULC_2015.tif"))
+
+# ssp1-2.6_2050 scenario
+MAT_26_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp126_bio1.tif") ) ; names(MAT_26_2050) = "MAT"
+MAP_26_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp126_bio12.tif") ) ; names(MAP_26_2050) = "MAP"
+bio4_26_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp126_bio4.tif") ) ; names(bio4_26_2050) = "bio4"
+bio15_26_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp126_bio15.tif") ) ; names(bio15_26_2050) = "bio15"
+LULC_26_2050 <-rast(here("1.preparing_predictors","final_predictors_masked","LULC","Global7-land-typesLULCprojectiondataset","global_SSP1_RCP26_2050.tif"))
+
+# ssp5-8.5_2050 scenario
+MAT_85_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp585_bio1.tif") ) ; names(MAT_85_2050) = "MAT"
+MAP_85_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp585_bio12.tif") ) ; names(MAP_85_2050) = "MAP"
+bio4_85_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp585_bio4.tif") ) ; names(bio4_85_2050) = "bio4"
+bio15_85_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp585_bio15.tif") ) ; names(bio15_85_2050) = "bio15"
+LULC_85_2050 <-rast(here("1.preparing_predictors","final_predictors_masked","LULC","Global7-land-typesLULCprojectiondataset","global_SSP5_RCP85_2050.tif"))
+
+# ssp1-2.6_2080 scenario
+MAT_26_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp126_bio1.tif") ) ; names(MAT_26_2080) = "MAT"
+MAP_26_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp126_bio12.tif") ) ; names(MAP_26_2080) = "MAP"
+bio4_26_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp126_bio4.tif") ) ; names(bio4_26_2080) = "bio4"
+bio15_26_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp126_bio15.tif") ) ; names(bio15_26_2080) = "bio15"
+LULC_26_2080 <-rast(here("1.preparing_predictors","final_predictors_masked","LULC","Global7-land-typesLULCprojectiondataset","global_SSP1_RCP26_2080.tif"))
+
+# ssp5-8.5_2080 scenario
+MAT_85_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp585_bio1.tif") ) ; names(MAT_85_2080) = "MAT"
+MAP_85_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp585_bio12.tif") ) ; names(MAP_85_2080) = "MAP"
+bio4_85_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp585_bio4.tif") ) ; names(bio4_85_2080) = "bio4"
+bio15_85_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp585_bio15.tif") ) ; names(bio15_85_2080) = "bio15"
+LULC_85_2080 <-rast(here("1.preparing_predictors","final_predictors_masked","LULC","Global7-land-typesLULCprojectiondataset","global_SSP5_RCP85_2080.tif"))
+
+
+# ssp2-4.5_2050 scenario
+MAT_45_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp245_bio1.tif") ) ; names(MAT_45_2050) = "MAT"
+MAP_45_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp245_bio12.tif") ) ; names(MAP_45_2050) = "MAP"
+bio4_45_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp245_bio4.tif") ) ; names(bio4_45_2050) = "bio4"
+bio15_45_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp245_bio15.tif") ) ; names(bio15_45_2050) = "bio15"
+LULC_45_2050 <-rast(here("1.preparing_predictors","final_predictors_masked","LULC","Global7-land-typesLULCprojectiondataset","global_SSP2_RCP45_2050.tif"))
+
+# ssp3-7.0_2050 scenario
+MAT_70_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp370_bio1.tif") ) ; names(MAT_70_2050) = "MAT"
+MAP_70_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp370_bio12.tif") ) ; names(MAP_70_2050) = "MAP"
+bio4_70_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp370_bio4.tif") ) ; names(bio4_70_2050) = "bio4"
+bio15_70_2050 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2041-2070_ssp370_bio15.tif") ) ; names(bio15_70_2050) = "bio15"
+LULC_70_2050 <-rast(here("1.preparing_predictors","final_predictors_masked","LULC","Global7-land-typesLULCprojectiondataset","global_SSP3_RCP70_2050.tif"))
+
+# ssp2-4.5_2080 scenario
+MAT_45_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp245_bio1.tif") ) ; names(MAT_45_2080) = "MAT"
+MAP_45_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp245_bio12.tif") ) ; names(MAP_45_2080) = "MAP"
+bio4_45_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp245_bio4.tif") ) ; names(bio4_45_2080) = "bio4"
+bio15_45_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp245_bio15.tif") ) ; names(bio15_45_2080) = "bio15"
+LULC_45_2080 <-rast(here("1.preparing_predictors","final_predictors_masked","LULC","Global7-land-typesLULCprojectiondataset","global_SSP2_RCP45_2080.tif"))
+
+# ssp3-7.0_2080 scenario
+MAT_70_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp370_bio1.tif") ) ; names(MAT_70_2080) = "MAT"
+MAP_70_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp370_bio12.tif") ) ; names(MAP_70_2080) = "MAP"
+bio4_70_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp370_bio4.tif") ) ; names(bio4_70_2080) = "bio4"
+bio15_70_2080 <- rast( here("1.preparing_predictors","final_predictors_masked","climate","future","2071-2100_ssp370_bio15.tif") ) ; names(bio15_70_2080) = "bio15"
+LULC_70_2080 <-rast(here("1.preparing_predictors","final_predictors_masked","LULC","Global7-land-typesLULCprojectiondataset","global_SSP3_RCP70_2080.tif"))
+
+# other
+LULC_C <- rast( here("1.preparing_predictors","final_predictors_masked","LULC","CORINE","corine.tif")); names(LULC_C)="LULC_C"
+ice_dist <- rast( here("1.preparing_predictors","final_predictors_masked","ice_dist_reproj_resampled.tif") ) ; names(ice_dist) = "ice_dist"
+elev <- rast( here("1.preparing_predictors","final_predictors_masked","mean_elevation_corrected.tif")) ; names(elev) = "elev"
+TRI <- rast(here("1.preparing_predictors","final_predictors_masked","mean_TRI.tif")) ; names(TRI) = "TRI"
+surf_het <- rast(here("1.preparing_predictors","final_predictors_masked","heterogeneity.tif")) ; names(surf_het) = "surf_het"
+NPP <- rast( here("1.preparing_predictors","final_predictors_masked","NPP.tif") ) ; names(NPP) = "NPP"
+soc <- rast(here("1.preparing_predictors","final_predictors_masked","soc_resampled2.tif")) ; names(soc) = "soc"
+coarse <- rast(here("1.preparing_predictors","final_predictors_masked","coarse_resampled2.tif")) ; names(coarse) = "coarse"
+karst <- rast(here("1.preparing_predictors","final_predictors_masked","potential_karst_resampled.tif")) ; names(karst) = "karst"
+mining <- rast(here("1.preparing_predictors","final_predictors_masked","mining.tif")) ; names(mining) = "mining"
+footprint <- rast(here("1.preparing_predictors","final_predictors_masked","footprint.tif")) ; names(footprint) = "footprint"
+
+
+# putting all historical/static predictor grids into single spatRaster with multiple layers (stack)
+# this stack is merely for data exploration and looking at variable correlation
+# the stacks used for modelling are defined later
+predictors_all <- c( MAT, MAP, bio4, bio15, LULC, 
+                 LULC_C, ice_dist, elev, TRI, surf_het, NPP, soc, coarse, karst, mining, footprint )
+
+# plotting the resulting raster object
+plot( predictors_all, legend = FALSE)
+```
+
+
+
+
+## Spider occurrence dataset
+
+Most of the data cleaning was already carried out by the other researchers involved in the construction of the dataset and by me, using QGIS. Some more steps were done using R.
+
+```{r}
+# importing spider occurrences
+library(readxl)
+occurrences_df_raw <- as.data.frame( read_excel(here::here("2.preparing_all_data","Spiders_db_GEB_2025-UPDATE.xlsx")) )
+
+# removing columns that dont matter
+occurrences_df <- occurrences_df_raw[ , c( "decimalLatitude", "decimalLongitude", "acceptedNameUsage")]
+
+# coercing longitudes and latitudes into numeric datatype
+occurrences_df[ , 1] <- as.numeric( occurrences_df[ , 1] )
+occurrences_df[ , 2] <- as.numeric( occurrences_df[ , 2] )
+
+# removing rows without longitude or without latitude
+# for reporting
+n_NA_lat_or_lon <- nrow( subset(occurrences_df, is.na(decimalLongitude) | is.na(decimalLatitude)))
+occurrences_df <- subset(occurrences_df, !is.na(decimalLongitude) & !is.na(decimalLatitude))
+
+# removing 0 latitudes or 0 longitudes, a common error
+n_zero_lat_or_lon <- nrow( subset(occurrences_df, decimalLongitude == 0 | decimalLatitude == 0)) 
+occurrences_df <- subset(occurrences_df, !decimalLongitude == 0 & !decimalLatitude == 0)
+
+# removing duplicates
+# for reporting
+n_dup <- sum( duplicated( occurrences_df )) 
+occurrences_df <- unique( occurrences_df)
+
+# excluding species complexes (ex Meta sp.)
+# these could only be useful to make the analysis at genus level, if I want to, in the future
+# in regex, \\. means a dot, and $ means the end of the string
+n_sp <- nrow( occurrences_df[grepl("sp\\.$", occurrences_df$acceptedNameUsage),]) #for reporting
+occurrences_df <- occurrences_df[!grepl("sp\\.$", occurrences_df$acceptedNameUsage),]
+
+# i first tried making records with "cf." (probable species) equal to normal records, using the line:
+# occurrences_df$acceptedNameUsage <- gsub(" cf\\. ", " ", occurrences_df$acceptedNameUsage)
+# but these records are without author name, so they were ended up treated as different species
+# so i'll just eliminate them, they were only about 70 anyway
+
+# excluding probable species records (ex Meta cf. menardi)
+n_cf <- nrow( occurrences_df[grepl("cf\\.", occurrences_df$acceptedNameUsage),]) #for reporting
+occurrences_df <- occurrences_df[!grepl("cf\\.", occurrences_df$acceptedNameUsage),]
+```
+
+Of the initial `r nrow(occurrences_df_raw)` records, there were:
+
+- `r n_NA_lat_or_lon` missing coordinates;
+- `r n_zero_lat_or_lon` with zero values for latitude or longitude;
+- `r n_dup` coordinate duplicates (same species in same coordinates);
+- `r n_sp` records identified at genus level (sp.);
+- and `r n_cf` probable identification records (cf.).
+
+```{r}
+# making the occurrence dataframe a vector
+occurrences <- vect( occurrences_df, geom = c("decimalLongitude", "decimalLatitude"), 
+                     crs = "+proj=longlat +datum=WGS84", keepgeom = FALSE)
+
+# reprojecting it to desired crs
+crs <- crs( MAT )
+occurrences <- project( occurrences, crs)
+
+nrow(occurrences) # before
+# removing records outside predictor grid (theres still a few)
+# this step also removes those that dont have a MAT value, which is reasonable
+na_at_occurrences <- is.na( terra::extract ( MAT, occurrences) [,2] )
+occurrences <- occurrences[ !na_at_occurrences, ]
+nrow(occurrences) # after
+
+# creating directory
+dir.create(here("2.preparing_all_data","spiders_vector"), recursive = TRUE, showWarnings = FALSE)
+
+# writing vector file to disk
+writeVector( occurrences, filename = here("2.preparing_all_data","spiders_vector","occurrences.shp"), overwrite = TRUE)
+
+occurrences
+```
+
+```{r}
+# define lower resolution elevation map by aggregating
+# if I use the original, the figure comes out grainy because of the resolution of the figure itself
+
+elev5 <- aggregate( elev, fact = 5, fun="mean" )
+
+
+slope5 <- terrain( elev5, "slope", unit="radians" )
+aspect5 <- terrain( elev5 , "aspect", unit="radians" )
+
+hillshade5 <- shade( slope5, aspect5, 40, 270,
+                    filename = here("2.preparing_all_data","hillshade5.tif") , overwrite = TRUE) 
+
+
+# plotting hillshade
+plot( hillshade5, col=grey(0:100/100), legend=FALSE, mar=c(2,2,1,4))
+
+# adding slighly transparent elevation layer on top
+plot( elev5, col=rainbow(25, alpha=0.35), add=TRUE)
+
+# adding occurrences as points
+points(occurrences, col = 'black', cex = 0.1 )
+```
+
+
+
+
+## Data exploration
+
+### Number of species and number of locations
+
+```{r, message=FALSE}
+# table with most common species (more locations)
+species_records <- table(occurrences_df$acceptedNameUsage)
+sorted_vec <- sort( species_records, decreasing = TRUE)
+sorted_vec[1:10]
+
+library(ggplot2)
+
+# convert to data frame and keep the 30 species with most locations
+species_df <- data.frame(sorted_vec[1:30])
+colnames(species_df) <- c("Species", "Freq")
+
+# plot of amount of locations per species (sorted from most locations to least)
+# just the 30 with most locations
+ggplot(species_df, aes(x = Species, y = Freq)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  geom_text(
+    aes(label = Freq),
+    vjust = -0.5,
+    color = "black",
+    size = 2
+  ) + 
+  labs( x = "Species (only 30 most common)", y = "Number of locations") +
+  theme_minimal() +
+  theme( axis.text.x = element_text( angle = 90, hjust = 1, vjust = 0.5,size = 6 ))+
+ scale_y_continuous( expand = expansion(mult = c(0, 0.20))) 
+
+# how many species over 1000 locations and under 30 locations
+library(dplyr)
+species_per_n_record <- data.frame(species_records) %>% 
+                          group_by(Freq) %>% 
+                          summarise(n = n())
+
+n_species_over_1000_records <- sum(species_per_n_record$n[species_per_n_record$Freq >= 1000])
+n_species_under_30_records <- sum(species_per_n_record$n[species_per_n_record$Freq <= 30])
+
+# total number of species
+n_species <- length( unique(occurrences_df$acceptedNameUsage) )
+```
+
+There is a very large number of species (`r n_species_under_30_records` of the `r n_species`) with up to 30 locations, and there are few species (only `r n_species_over_1000_records` of the `r n_species`) with more than 1000 locations.
+
+```{r}
+# number o species with only one, two or three locations (highly endemic)
+species_per_n_record[1:3,]
+
+
+# how many species have enough locations to model their distribution
+# decide minimum amount of locations (cutoff)
+minimum_records <- 4
+
+n_species_over_minimum_records <- sum(species_per_n_record$n[species_per_n_record$Freq >= minimum_records])
+```
+
+Of the `r n_species` total species, the number of species with at least `r minimum_records` locations is `r n_species_over_minimum_records`. This value might differ from the number of species modelled due to further elimination of some species which, after spatial thinning, had less than the necessary four locations.
+
+```{r}
+# convert vector do df so I can add an index column
+sorted_vec_df <- data.frame(sorted_vec)
+colnames(sorted_vec_df) <- c("Species", "Freq")
+sorted_vec_df$index <- 1:length(sorted_vec)
+
+# find index of last species will minimum locations
+index_of_cutoff_species <- max ( sorted_vec_df$index[ sorted_vec_df$Freq >= minimum_records] ) 
+
+ggplot(data = sorted_vec_df, aes(x = index, y = Freq)) +
+  geom_bar(stat = "identity", fill = "black") +
+  geom_vline(
+    xintercept = index_of_cutoff_species,
+    color = "red"
+  ) +
+  labs(x = "Species", y = "Number of locations") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )
+
+```
+
+
+
+### Habitat, basis of record, and taxonomy
+
+This part of exploratory data analysis uses the original dataset still with duplicates, since it still has columns for habitat, basis of record, and taxonomy. It should allow a general inspection.
+
+```{r, message=FALSE, fig.width=9, fig.height=4.5}
+# Number of records per habitat type and per basis of record
+
+library(ggplot2)
+
+# habitat barplot
+
+habitats <- data.frame( sort( table( occurrences_df_raw$habitat ), decreasing = TRUE))
+
+habitat_labels <- c(
+  "Shallow Subterranean Habitats (SSH)" = "SSH",
+  "cave" = "Cave",
+  "NA" = "NA",
+  "artificial" = "Artificial"
+)
+
+plot1 <- ggplot(data = habitats, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "salmon") +
+  geom_text(aes(label = Freq), vjust = -0.7, color = "black", size = 2.5) +
+  labs(x = "Habitat type", y = "Number of records") +
+  scale_x_discrete(labels = habitat_labels) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 8, angle = 0, hjust = 0.5)
+  )
+
+
+# basis of record barplot
+
+basisOfRecords <- data.frame( sort( table( occurrences_df_raw$basisOfRecord ), decreasing = TRUE))
+
+basis_labels <- c(
+  "HumanObservation" = "Human obs.",
+  "Occurrence" = "Occurrence",
+  "NA" = "NA",
+  "PreservedSpecimen" = "Specimen",
+  "Literature" = "Literature"
+)
+
+plot2 <- ggplot(data = basisOfRecords, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "cornsilk") +
+  geom_text(aes(label = Freq), vjust = -0.7, color = "black", size = 2.5) +
+  labs(x = "Basis of record", y = "Number of records") +
+  scale_x_discrete(labels = basis_labels) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 8, angle = 0, hjust = 0.5)
+  )
+
+
+# arrange grid with both
+
+require(gridExtra)
+grid.arrange(plot1, plot2, ncol=2)
+```
+
+All the rows have the same higher taxonomy values: phylum = Arthropoda; class = Arachnida; order = Araneae.
+
+```{r, message=FALSE}
+# Records per family
+
+library(ggplot2)
+
+families <- data.frame( sort( table( occurrences_df_raw$family ), decreasing = TRUE))
+
+ggplot(data = families, aes(x=Var1, y=Freq)) +
+  geom_bar(stat="identity", fill="darkolivegreen2")+
+  geom_text(aes(label=Freq), vjust=-0.7, color="black", size=2)+
+  labs(x = "Family", y = "Number or records") +
+  theme_minimal() +
+  theme(axis.text.x=element_text(angle = -270, hjust = 0))
+```
+
+
+```{r, message=FALSE}
+# Most common genera
+
+library(ggplot2)
+library(dplyr)
+
+genera <- data.frame( sort( table( occurrences_df_raw$genus ), decreasing = TRUE))
+
+top30_genera <- genera %>% slice_max(Freq, n = 30)
+
+ggplot(data = top30_genera, aes(x=Var1, y=Freq)) +
+  geom_bar(stat="identity", fill="darkolivegreen")+
+  geom_text(aes(label=Freq), vjust=-0.7, color="black", size=2)+
+  labs(x = "Genus (only 30 most common)", y = "Number or records") +
+  theme_minimal() +
+  theme(axis.text.x=element_text(angle = -270, hjust = 0))
+```
+
+
+```{r, fig.width=9, fig.height=4.5}
+# Histograms of latitude and longitude
+
+library(ggplot2)
+library(tidyr)
+
+coordinates <- occurrences_df_raw |>
+  transmute(
+    Latitude = as.numeric(decimalLatitude),
+    Longitude = as.numeric(decimalLongitude)
+  ) |>
+  pivot_longer(
+    cols = everything(),
+    names_to = "coordinate",
+    values_to = "value"
+  )
+
+ggplot(coordinates, aes(x = value)) +
+  geom_histogram(bins = 30, fill = "bisque3", na.rm = TRUE) +
+  facet_wrap(~ coordinate, scales = "free",
+             labeller = as_labeller(c(
+               Latitude = "Latitude",
+               Longitude = "Longitude"
+             ))) +
+  labs(x = NULL, y = "Number of records") +
+  theme_minimal()
+```
+
+Both latitude and longitude seem normally distributed in this dataset. The latitudes' tendency toward the middle is due to extensive sampling in the Pyrenees, Alps and Dinarics.
+
+
+
+
+### Correlation between predictors
+
+I considered looking at collinearity for the points of each species/model by automating correlation cutoffs, but it makes more sense to define a list of predictors *a priori* for all species, by looking at their correlation structure for all spider occurrences. The first option would lead to better model fit but likely less model transferability.
+
+```{r}
+# extracting grid values for each occurrence point
+# note i'm extracting using the explanatory dataset raster with all variables included
+spider_env <- terra::extract( predictors_all, occurrences)
+
+# remove the ID variable
+spider_env <- spider_env[,-1]
+
+# summarize
+summary( spider_env )
+```
+
+There's an irrelevant amount of NAs in climatic variables, which are the points which fall out of the mask. There are some more NAs for other variables, but few enough to be a minor issue.
+
+```{r, warning=FALSE, message=FALSE}
+# visualizing collinearity between climatic variables and related
+
+library(ggplot2)
+library(GGally)   
+
+ggpairs(
+  spider_env[, c(1,2,3,4,7,8,11)],
+  upper = list(continuous = wrap("cor", size = 2.5)),
+  lower = list(continuous = wrap("points", size = 0.5, alpha = 0.5))
+) +
+  theme(
+    axis.text = element_text(size = 6),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(size = 8)
+  )
+
+# an alternative is ecospat.cor.plot(spider_env) from the ecospat library
+```
+
+There are some important correlations between the variables, the largest being temperature and elevation, as expected. The reason all correlations are significant, but with relatively low Pearson's *r* values is due to the datasets big size. Temperature is also very positively correlated with precipitation seasonality, probably due to Mediterranean climate (the hotter south is subtropical, with high rain seasonality). Surprisingly, elevation has almost no correlation with LGM distance.
+
+```{r, warning=FALSE, fig.width=9, fig.height=4.5}
+par( mfrow = c(1,2) )
+
+# scatter plot for all european pixels
+plot( ice_dist, elev, main = "All pixels",
+      maxcell = 1000000,
+      xlab="Distance to LGM", ylab="Elevation")
+
+# scatter plot only for pixels with spiders
+with( spider_env, plot( elev ~ ice_dist, 
+                        main = "Spider pixels",
+      xlab="Distance to LGM", ylab="Elevation",
+                        pch = 19, cex = 0.1))
+```
+
+There seems to be no spider occurrences in zones that were under glaciers and above 500m, even though those areas exist. The lack of subterranean fauna inside the LGM is well-studied, but it is curious that the areas under glacier extent but below 500m still have occurrences. It could be troglophile records looking like an apparent exception. Also, the point cluster on the right is the island occurrences (hence the lack of continuity in values -- there are no points in the ocean).
+
+```{r, warning=FALSE, message=FALSE}
+# collinearity between all other numeric variables
+
+ggpairs(
+  spider_env[ , c( 8, 9, 10, 11, 12, 13, 14, 15, 16 ) ],
+  upper = list(continuous = wrap("cor", size = 2.5)),
+  lower = list(continuous = wrap("points", size = 0.5, alpha = 0.5))
+) +
+  theme(
+    axis.text = element_text(size = 6),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(size = 8)
+  )
+
+```
+
+Elevation, TRI and SOC are all somewhat positively correlated. Human footprint and NPP diminish with altitude, evidently. A lot of variables seem to have some limiting effect on human footprint. Habitat heterogeneity, karst potential, mining area and SOC are not much correlated with any other variable of the group. I will not eliminate any predictor due to high correlation, since all Pearson's *r* values are below 0.7 in absolute (Freedman et al., 2007).
+
+```{r}
+library(usdm)
+
+# vif test for all numerical predictors
+vif( spider_env[ , c(-5,-6)])
+```
+
+All variables are below a Variance Inflation Factor value of 5, which is considered acceptable for further analyses (Curto & Pinto, 2011).
+
+```{r}
+# running a PCA
+
+library(ade4)
+
+# extracting coordinates from occurrence vector
+spider_crds <- data.frame( crds(occurrences))
+
+# getting id's of grid cells with spiders
+spider_cell_id <- cellFromXY( subset(predictors_all, 1 ), spider_crds )
+
+# converting predictor stack into dataframe, for pca
+predictors_all_df <- na.omit( as.data.frame( predictors_all ))
+head(predictors_all_df)
+
+# removing factors
+predictors_all_df <- predictors_all_df[, c(-5, -6)]
+
+# running pca over whole study area (not just spider locations!)
+pca_predictors <- dudi.pca( predictors_all_df, scannf = F, 
+                            nf = 2) # two principal components / axes
+
+# preliminary test to look for potential outliers in the environmental data
+# PCA scores on first two axes
+plot(pca_predictors$li[, 1:2])
+```
+
+There are no obvious outlier records in environmental space. The most extreme points of the environmental space are somewhere in Sweden.
+
+```{r}
+# finding the extreme-left points and plotting them on the map
+weird_rows <- which(pca_predictors$li[, 1] < -10)
+weird_ids <-  predictors_all_df[ weird_rows, 0] 
+
+# manually transcribed the resulting row IDs below, as a workaround
+
+weird_ids <- c( 2411166, 2557729, 2645635, 2652958, 2660281)
+weird_xy <- xyFromCell( predictors_all, weird_ids)
+
+plot( subset(predictors_all, 1))
+points( weird_xy )
+```
+
+```{r, fig.width=10, fig.height=5}
+# displaying spider occurrences on the environmental space defined by the first two PCA axes
+
+par(mfrow=c(1, 2))
+
+# discriminate presences from the entire environmental space
+s.class( pca_predictors$li[, 1:2], 
+         fac = factor( rownames( predictors_all_df ) %in% spider_cell_id, 
+          levels = c("FALSE", "TRUE" ),
+          labels = c("Background", "Spider occurrences")), 
+          col=c("red", "blue"),
+          csta = 0, cellipse = 4, cpoint = .3, pch = 16)
+
+mtext("(a)", side = 3, line = 3, adj = 0) # add (a) label
+
+# correlation circle of the variables as a function of the same first two PCA axes
+s.corcircle( pca_predictors$co, clabel = .5 )
+
+mtext("(b)", side = 3, line = 3, adj = 0) # add (b) label
+```
+
+European subterranean spiders occupy a subset of the environmental space (as defined by these two axis), and are clustered in the centre of it, seemingly not occurring in the extremes. Variables *bio15*, *surf_het*, *mining* and *karst* might be of less importance. As mentioned before, *elev*, *TRI*, and *coarse* are all positively correlated. *ice_dist* and *MAT* appear related, which is senseful. Usually, one could look for a variable/arrow that was long and followed the longest axis of the species' ellipse, driving it away from the environmental point cloud [@big_book], but in this case nothing is apparent, and the plot is not for a single species.
+
+I will not use elevation (*elev*) as a predictor, since its highly correlated to many other variables, should not be a direct driver of subterranean spider presence, and the real drivers related to elevation are already in the dataset. As recommended by @big_book, the use of proximal variables is preferred to distal ones, when both are available.
+
+## Assembling final raster stacks
+
+Scaling helps ensure that all variables can similarly contribute to the model and are not influenced by their order of magnitude and range.
+
+```{r, eval = FALSE}
+# subsetting predictor variables to be used for modelling, from the full stack
+
+### explanatory dataset
+# includes those with no future layers available (AvailableForFuture = no)
+# which means everything except elev and corine LULC
+explanatory <- c( MAT, MAP, bio4, bio15, LULC, 
+                  ice_dist, TRI, surf_het, NPP, soc, coarse, karst, mining, footprint )
+
+# standardized version
+explanatory_s <- c( MAT, MAP, bio4, bio15,
+                  ice_dist, TRI, surf_het, NPP, soc, coarse, karst, mining, footprint )
+
+# fetching and storing mean and sd of each layer/predictor, which are the values used for automatic scaling, and can thus be used for "unscaling" response curves later
+explanatory_means_sd  <- cbind( global( explanatory_s, "mean", na.rm=TRUE ), 
+                                global( explanatory_s, "sd", na.rm=TRUE ) )
+save( explanatory_means_sd, file=here("2.preparing_all_data","predictor_stacks","explanatory_means_sd.Rdata"))
+
+# scaling
+explanatory_s <- scale( explanatory_s, center=TRUE, scale=TRUE)
+explanatory_s <- c( explanatory_s, LULC )
+
+
+### datasets that will be used for temporal extrapolation
+# includes predictors which are either static or have future layers available (AvailableForFuture = yes or (yes))
+# for each one, i standardize all numerical variables and then add the factor LULC   
+
+# historical is the dataset models are fit on, so its mean/sd define the standardization
+# used to standardize every future dataset below, so theyre all on the same scale
+# otherwise re-centering each scenario on itself would erase the climate-change signal
+historical_raw <- c( MAT, MAP, bio4, bio15,
+                 ice_dist, TRI, soc, coarse, karst )
+
+historical_means <- global( historical_raw, "mean", na.rm = TRUE )$mean
+historical_sds   <- global( historical_raw, "sd", na.rm = TRUE )$sd
+
+historical <- scale( historical_raw, center = historical_means, scale = historical_sds )
+historical <- c( historical, LULC )
+
+
+future_26_2050 <- c( MAT_26_2050, MAP_26_2050, bio4_26_2050, bio15_26_2050, 
+                 ice_dist, TRI, soc, coarse, karst )
+future_26_2050 <- scale( future_26_2050, center = historical_means, scale = historical_sds )
+future_26_2050 <- c( future_26_2050, LULC_26_2050 )
+
+future_85_2050 <- c( MAT_85_2050, MAP_85_2050, bio4_85_2050, bio15_85_2050, 
+                 ice_dist, TRI, soc, coarse, karst )
+future_85_2050 <- scale( future_85_2050, center = historical_means, scale = historical_sds )
+future_85_2050 <- c( future_85_2050, LULC_85_2050 )
+
+future_26_2080 <- c( MAT_26_2080, MAP_26_2080, bio4_26_2080, bio15_26_2080, 
+                 ice_dist, TRI, soc, coarse, karst )
+future_26_2080 <- scale( future_26_2080, center = historical_means, scale = historical_sds )
+future_26_2080 <- c( future_26_2080, LULC_26_2080 )
+
+future_85_2080 <- c( MAT_85_2080, MAP_85_2080, bio4_85_2080, bio15_85_2080, 
+                 ice_dist, TRI, soc, coarse, karst )
+future_85_2080 <- scale( future_85_2080, center = historical_means, scale = historical_sds )
+future_85_2080 <- c( future_85_2080, LULC_85_2080 )
+
+
+future_45_2050 <- c( MAT_45_2050, MAP_45_2050, bio4_45_2050, bio15_45_2050, 
+                 ice_dist, TRI, soc, coarse, karst )
+future_45_2050 <- scale( future_45_2050, center = historical_means, scale = historical_sds )
+future_45_2050 <- c( future_45_2050, LULC_45_2050 )
+
+future_70_2050 <- c( MAT_70_2050, MAP_70_2050, bio4_70_2050, bio15_70_2050, 
+                 ice_dist, TRI, soc, coarse, karst )
+future_70_2050 <- scale( future_70_2050, center = historical_means, scale = historical_sds )
+future_70_2050 <- c( future_70_2050, LULC_70_2050 )
+
+future_45_2080 <- c( MAT_45_2080, MAP_45_2080, bio4_45_2080, bio15_45_2080, 
+                 ice_dist, TRI, soc, coarse, karst )
+future_45_2080 <- scale( future_45_2080, center = historical_means, scale = historical_sds )
+future_45_2080 <- c( future_45_2080, LULC_45_2080 )
+
+future_70_2080 <- c( MAT_70_2080, MAP_70_2080, bio4_70_2080, bio15_70_2080, 
+                 ice_dist, TRI, soc, coarse, karst )
+future_70_2080 <- scale( future_70_2080, center = historical_means, scale = historical_sds )
+future_70_2080 <- c( future_70_2080, LULC_70_2080 )
+
+# creating directory
+dir.create(here("2.preparing_all_data","predictor_stacks"), recursive = TRUE, showWarnings = FALSE)
+
+# exporting all stacks to disk
+writeRaster(explanatory, here("2.preparing_all_data","predictor_stacks","explanatory.tif"), overwrite = TRUE)
+writeRaster(explanatory_s, here("2.preparing_all_data","predictor_stacks","explanatory_s.tif"), overwrite = TRUE)
+writeRaster(historical, here("2.preparing_all_data","predictor_stacks","historical.tif"), overwrite = TRUE)
+writeRaster(future_26_2050, here("2.preparing_all_data","predictor_stacks","future_26_2050.tif"), overwrite = TRUE)
+writeRaster(future_85_2050, here("2.preparing_all_data","predictor_stacks","future_85_2050.tif"), overwrite = TRUE)
+writeRaster(future_26_2080, here("2.preparing_all_data","predictor_stacks","future_26_2080.tif"), overwrite = TRUE)
+writeRaster(future_85_2080, here("2.preparing_all_data","predictor_stacks","future_85_2080.tif"), overwrite = TRUE)
+
+writeRaster(future_45_2050, here("2.preparing_all_data","predictor_stacks","future_45_2050.tif"), overwrite = TRUE)
+writeRaster(future_70_2050, here("2.preparing_all_data","predictor_stacks","future_70_2050.tif"), overwrite = TRUE)
+writeRaster(future_45_2080, here("2.preparing_all_data","predictor_stacks","future_45_2080.tif"), overwrite = TRUE)
+writeRaster(future_70_2080, here("2.preparing_all_data","predictor_stacks","future_70_2080.tif"), overwrite = TRUE)
+```
+
+```{r}
+# re-importing stacks so Rmarkdown works
+explanatory <- rast(here("2.preparing_all_data","predictor_stacks","explanatory.tif"))
+historical <- rast(here("2.preparing_all_data","predictor_stacks","historical.tif"))
+future_26_2050 <- rast(here("2.preparing_all_data","predictor_stacks","future_26_2050.tif"))
+future_85_2050 <- rast(here("2.preparing_all_data","predictor_stacks","future_85_2050.tif"))
+future_26_2080 <- rast(here("2.preparing_all_data","predictor_stacks","future_26_2080.tif"))
+future_85_2080 <- rast(here("2.preparing_all_data","predictor_stacks","future_85_2080.tif"))
+
+future_45_2050 <- rast(here("2.preparing_all_data","predictor_stacks","future_45_2050.tif"))
+future_70_2050 <- rast(here("2.preparing_all_data","predictor_stacks","future_70_2050.tif"))
+future_45_2080 <- rast(here("2.preparing_all_data","predictor_stacks","future_45_2080.tif"))
+future_70_2080 <- rast(here("2.preparing_all_data","predictor_stacks","future_70_2080.tif"))
+```
+
+
+
+ 
+## References

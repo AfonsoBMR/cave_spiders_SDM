@@ -1,0 +1,33 @@
+# ignore everything by default, then whitelist specific extensions
+*
+
+# but allow traversal into all directories (needed so git can see subfolders and apply the rules below)
+!*/
+
+# whitelisted extensions (kept regardless of folder)
+!*.txt
+!*.pdf
+!*.R
+!*.docx
+!*.Rmd
+!*.xlsx
+!*.html
+!*.svg
+!*.csv
+!*.Rproj
+!*.bib
+!.gitignore
+!.gitattributes
+
+# exclude these folders and everything inside them, even whitelisted extensions
+/.bibliography/
+/.writing_and_presenting/
+/SUP.biomod_explanatory/
+/SUP.biomod_global_change/
+/SUP.method_comparison/
+/SUP.sampling_simulation/
+/.Rproj.user/
+
+# always keep everything inside this folder, regardless of file type
+!/1.preparing_predictors/report_images/
+!/1.preparing_predictors/report_images/**

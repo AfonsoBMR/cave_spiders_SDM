@@ -1,0 +1,14 @@
+some of the files in this folder are with incorrect units (after merging the original tiles every value got halved for some reason), so always confirm their range before usage. 
+
+The corrected (*2) files are:
+
+mean_elevation_corrected.tif
+mean_TRI.tif
+continental_elev_reproj_corrected.tif
+continental_TRI.tif
+continental_mean_TRI.tif
+islands_elev_reproj_corrected.tif
+islands_TRI.tif
+islands_mean_TRI.tif
+
+all the others, except the originals, have halved values
