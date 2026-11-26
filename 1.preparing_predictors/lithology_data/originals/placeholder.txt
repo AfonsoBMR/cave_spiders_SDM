@@ -1,0 +1,7 @@
+This is a placeholder for the raster files. Source them from:
+
+‘The 1:5 Million International Geological Map of Europe and Adjacent Areas (IGME5000)’, 21 November 2005, accessed 26 November 2026, http://data.europa.eu/88u/dataset/9fd6624c-0aa7-46d4-9da3-955e558cd5f1
+
+and
+
+EuroGeoSurveys. (2018). EGDI 1:1 Million pan-european Surface Geology [Data set]. European Geological Data Infrastructure. https://doi.org/10.22008/y9hj-va55

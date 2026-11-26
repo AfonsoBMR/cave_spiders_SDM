@@ -1,0 +1,4 @@
+This is a placeholder for the raster files. Source them from:
+
+Poggio, L. et al. SoilGrids 2.0: Producing soil information for the globe with quantified spatial uncertainty. SOIL 7, 217–240 (2021).
+https://soilgrids.org/

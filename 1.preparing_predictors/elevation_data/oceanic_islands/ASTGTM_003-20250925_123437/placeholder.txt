@@ -1,0 +1,3 @@
+This is a placeholder for the raster files. Source them from:
+
+NASA/METI/AIST/Japan Spacesystems and U.S./Japan ASTER Science Team. ASTER Global Digital Elevation Model V003 [Data set]. Preprint at (2019).

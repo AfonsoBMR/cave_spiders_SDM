@@ -1,0 +1,7 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+predictor_stacks/
+spiders_vector/
+mask/
